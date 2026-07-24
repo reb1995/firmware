@@ -1,0 +1,100 @@
+name: Seeed Nightly Build
+on:
+  schedule:
+    - cron: 0 3 * * * # UTC 3 AM daily.
+  workflow_dispatch:
+permissions: read-all
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.vars.outputs.SHORT_SHA }}
+      build_date: ${{ steps.vars.outputs.BUILD_DATE }}
+    steps:
+      - id: vars
+        run: |
+          SHA=$(git ls-remote https://github.com/meshtastic/firmware.git refs/heads/develop | cut -c1-7)
+          echo "SHORT_SHA=$SHA" >> $GITHUB_OUTPUT
+          echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+  build:
+    needs: setup
+    strategy:
+      matrix:
+        include:
+          - board: seeed-xiao-c3
+            chip: esp32c3
+            flash: 4MB
+            fs_offset: 0x310000
+          - board: seeed-xiao-c5
+            chip: esp32c5
+            flash: 8MB
+            fs_offset: 0x670000
+          - board: seeed-xiao-c6
+            chip: esp32c6
+            flash: 4MB
+            fs_offset: 0x310000
+          - board: seeed-xiao-s3-wio
+            chip: esp32s3
+            flash: 8MB
+            fs_offset: 0x670000
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sync, Merge, and Push Develop
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/meshtastic/firmware.git
+          git fetch upstream
+          git checkout -b nightly-integration upstream/develop
+          git merge origin/xiao-c3 --no-edit
+          git merge origin/xiao-c5 --no-edit
+          git merge origin/xiao-c6 --no-edit
+          git merge origin/xiao-s3-wio --no-edit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Install PlatformIO and esptool
+        run: |
+          pip install platformio esptool
+      - name: Build Custom firmware
+        run: |
+          pio run -e ${{ matrix.board }}
+      - name: Merge firmware files into single file
+        env:
+          SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
+        run: |
+          esptool --chip ${{ matrix.chip }} merge-bin -o .pio/build/${{ matrix.board }}/firmware-${{ matrix.board }}-$SHORT_SHA.merged.bin --flash-mode dio --flash-freq 80m --flash-size ${{ matrix.flash }} 0x0000 .pio/build/${{ matrix.board }}/*.factory.bin ${{ matrix.fs_offset }} .pio/build/${{ matrix.board }}/littlefs*.bin
+          mv .pio/build/${{ matrix.board }}/*.factory.bin .pio/build/${{ matrix.board }}/firmware-${{ matrix.board }}-$SHORT_SHA.factory.bin
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.board }}-binaries
+          path: |
+            .pio/build/${{ matrix.board }}/*.merged.bin
+            .pio/build/${{ matrix.board }}/*.factory.bin
+  release:
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish Nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly-${{ needs.setup.outputs.short_sha }}
+          name: "${{ needs.setup.outputs.build_date }}: Nightly Build ${{ needs.setup.outputs.short_sha }}"
+          body: |
+            Based on commit: meshtastic/firmware@${{ needs.setup.outputs.short_sha }}.
+            merged.bin will factory reset device. factory.bin will keep previous configuration.
+          files: |
+            artifacts/**/*.merged.bin
+            artifacts/**/*.factory.bin
+          make_latest: true
