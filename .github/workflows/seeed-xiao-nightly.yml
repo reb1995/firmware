@@ -58,7 +58,7 @@ jobs:
           python-version: 3.x
       - name: Install PlatformIO and esptool
         run: |
-          pip install platformio esptool
+          pip install "platformio==6.1.19" esptool
       - name: Build Custom firmware
         run: |
           pio run -e ${{ matrix.board }}
