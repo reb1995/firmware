@@ -1,0 +1,40 @@
+{
+  "build": {
+    "arduino": {
+      "ldscript": "esp32c5_out.ld",
+      "memory_type": "qio_opi"
+    },
+    "core": "esp32",
+    "extra_flags": [
+      "-DBOARD_HAS_PSRAM",
+      "-DARDUINO_USB_CDC_ON_BOOT=1",
+      "-DARDUINO_USB_MODE=1"
+    ],
+    "f_cpu": "240000000L",
+    "f_flash": "80000000L",
+    "flash_mode": "qio",
+    "psram_type": "opi",
+    "hwids": [["0x2886", "0x0059"]],
+    "mcu": "esp32c5",
+    "variant": "seeed-xiao-c5"
+  },
+  "connectivity": ["wifi", "bluetooth", "lora"],
+  "debug": {
+    "default_tool": "esp-builtin",
+    "onboard_tools": ["esp-builtin"],
+    "openocd_target": "esp32c5.cfg"
+  },
+  "frameworks": ["arduino", "espidf"],
+  "name": "seeed-xiao-c5",
+  "upload": {
+    "flash_size": "8MB",
+    "maximum_ram_size": 393216,
+    "maximum_size": 8388608,
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true,
+    "require_upload_port": true,
+    "speed": 921600
+  },
+  "url": "https://www.seeedstudio.com/Seeed-Studio-XIAO-ESP32C5-p-6609.html",
+  "vendor": "Seeed Studio"
+}
