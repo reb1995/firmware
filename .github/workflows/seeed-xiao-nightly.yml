@@ -56,11 +56,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - name: Install PlatformIO and esptool
+      - name: Install pioarduino and esptool
         run: |
-          pip install platformio esptool
+          pip install pioarduino esptool
       - name: Build Custom firmware
         run: |
+          pio pkg install -e ${{ matrix.board }}
+          mkdir -p ~/.platformio/packages/tool-scons/SCons/Tool
+          echo "def isfortran(*args, **kwargs): return False" > ~/.platformio/packages/tool-scons/SCons/Tool/FortranCommon.py
           pio run -e ${{ matrix.board }}
       - name: Merge firmware files into single file
         env:
