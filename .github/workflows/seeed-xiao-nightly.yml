@@ -53,19 +53,22 @@ jobs:
           git merge origin/xiao-c5 --no-edit
           git merge origin/xiao-c6 --no-edit
           git merge origin/xiao-s3-wio --no-edit
+      - name: Build Custom firmware
+        uses: meshtastic/gh-action-firmware@main
+        with:
+          pio_platform: esp32
+          pio_env: ${{ matrix.board }}
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - name: Install PlatformIO and esptool
+      - name: Install esptool
         run: |
-          pip install platformio esptool
-      - name: Build Custom firmware
-        run: |
-          pio run -e ${{ matrix.board }}
+          pip install esptool
       - name: Merge firmware files into single file
         env:
           SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
         run: |
+          sudo chown -R $USER:$USER .pio
           esptool --chip ${{ matrix.chip }} merge-bin -o .pio/build/${{ matrix.board }}/firmware-${{ matrix.board }}-$SHORT_SHA.merged.bin --flash-mode dio --flash-freq 80m --flash-size ${{ matrix.flash }} 0x0000 .pio/build/${{ matrix.board }}/*.factory.bin ${{ matrix.fs_offset }} .pio/build/${{ matrix.board }}/littlefs*.bin
           mv .pio/build/${{ matrix.board }}/*.factory.bin .pio/build/${{ matrix.board }}/firmware-${{ matrix.board }}-$SHORT_SHA.factory.bin
       - name: Upload Artifact
